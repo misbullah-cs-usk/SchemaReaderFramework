@@ -77,10 +77,12 @@ def load_data(filepath, fmt):
         raise ValueError("Unknown format")
 
     mem_after = get_process_mem()
+    mem_delta = mem_after - mem_before
     return df, {
         "read_time_ms": format_ms(time.time() - t0),
         "mem_before_mb": mem_before,
         "mem_after_mb": mem_after,
+        "mem_delta_mb": mem_delta,
     }
 
 
@@ -143,11 +145,13 @@ def preprocess(df):
     )
 
     mem_after = get_process_mem()
+    mem_delta = mem_after - mem_before
 
     return (X_train, X_test, y_train, y_test), {
         "prep_time_ms": format_ms(time.time() - t0),
         "mem_before_mb": mem_before,
         "mem_after_mb": mem_after,
+        "mem_delta_mb": mem_delta,
         "label_column": label_col,
         "num_features": X_train.shape[1],
         "unique_classes": len(np.unique(y))
@@ -166,24 +170,12 @@ def train_model(model, X_train, y_train):
     sampler.stop()
     mem_after = get_process_mem()
 
+    mem_delta = mem_after - mem_before
     return {
         "fit_time_ms": format_ms(time.time() - start),
         "mem_before_mb": mem_before,
         "mem_after_mb": mem_after,
+        "mem_delta_mb": mem_delta,
         "peak_memory_mb": sampler.peak_memory,
         "memory_increase_mb": sampler.peak_memory - mem_before
     }
-
-#def train_model(model, X_train, y_train):
-#    t0 = time.time()
-#    mem_before = get_process_mem()
-#
-#    model.fit(X_train, y_train)
-#
-#    mem_after = get_process_mem()
-#    return {
-#        "fit_time_ms": format_ms(time.time() - t0),
-#        "mem_before_mb": mem_before,
-#        "mem_after_mb": mem_after,
-#    }
-#

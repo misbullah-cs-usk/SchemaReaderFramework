@@ -162,14 +162,14 @@ def main_benchmark(
     )
 
     # ================= SAVE CSV =================
-    write_order = ["run", "format", "file_size_mb", "write_time_ms", "cpu_avg_proc_percent", "mem_before_mb", "mem_after_mb"]
+    write_order = ["run", "format", "file_size_mb", "write_time_ms", "cpu_avg_proc_percent", "mem_before_mb", "mem_after_mb", "mem_delta_mb", "mem_peak_delta_mb"]
     df_write_all = df_write_all[write_order]
     df_write_all.to_csv(
         csv_dir / f"benchmark_write_{input_stem}_all_runs.csv",
         float_format="%.4f",
         index=False
     )
-    read_order = ["run", "format", "read_time_ms", "cpu_avg_proc_percent", "mem_before_mb", "mem_after_mb"]
+    read_order = ["run", "format", "read_time_ms", "cpu_avg_proc_percent", "mem_before_mb", "mem_after_mb", "mem_delta_mb", "mem_peak_delta_mb"]
     df_read_all = df_read_all[read_order]
     df_read_all.to_csv(
         csv_dir / f"benchmark_read_{input_stem}_all_runs.csv",
@@ -271,19 +271,19 @@ def main_ml_benchmark(
                 "LR_fit_ms": log_res["fit_time_ms"],
                 "LR_peak_mb": log_res["peak_memory_mb"],
                 "LR_mem_inc_mb": log_res["memory_increase_mb"],
-                "LR_mem_after_mb": log_res["mem_after_mb"],
+                "LR_mem_delta_mb": log_res["mem_delta_mb"],
 
                 # SVM
                 "SVM_fit_ms": svm_res["fit_time_ms"],
                 "SVM_peak_mb": svm_res["peak_memory_mb"],
                 "SVM_mem_inc_mb": svm_res["memory_increase_mb"],
-                "SVM_mem_after_mb": svm_res["mem_after_mb"],
+                "SVM_mem_delta_mb": svm_res["mem_delta_mb"],
 
                 # MLP
                 "MLP_fit_ms": mlp_res["fit_time_ms"],
                 "MLP_peak_mb": mlp_res["peak_memory_mb"],
                 "MLP_mem_inc_mb": mlp_res["memory_increase_mb"],
-                "MLP_mem_after_mb": mlp_res["mem_after_mb"],
+                "MLP_mem_delta_mb": mlp_res["mem_delta_mb"],
             })
 
     # ================= AGGREGATION =================
@@ -298,17 +298,17 @@ def main_ml_benchmark(
     # ================= PRINT TABLES =================
     lr_columns = [
         "read_ms", "prep_ms",
-        "LR_fit_ms", "LR_peak_mb", "LR_mem_inc_mb", "LR_mem_after_mb"
+        "LR_fit_ms", "LR_peak_mb", "LR_mem_inc_mb", "LR_mem_delta_mb"
     ]
 
     svm_columns = [
         "read_ms", "prep_ms",
-        "SVM_fit_ms", "SVM_peak_mb", "SVM_mem_inc_mb", "SVM_mem_after_mb"
+        "SVM_fit_ms", "SVM_peak_mb", "SVM_mem_inc_mb", "SVM_mem_delta_mb"
     ]
 
     mlp_columns = [
         "read_ms", "prep_ms",
-        "MLP_fit_ms", "MLP_peak_mb", "MLP_mem_inc_mb", "MLP_mem_after_mb"
+        "MLP_fit_ms", "MLP_peak_mb", "MLP_mem_inc_mb", "MLP_mem_delta_mb"
     ]
 
     def print_mean_std(title, cols):

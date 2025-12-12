@@ -7,6 +7,32 @@ import pyarrow.parquet as pq
 import pyarrow.feather as feather
 from fastavro import reader as avro_reader
 import json
+import threading
+
+class MemorySampler:
+    def __init__(self, interval=0.01):
+        self.interval = interval
+        self.process = psutil.Process(os.getpid())
+        self.running = False
+        self.peak_mb = 0.0
+        self.thread = None
+
+    def _run(self):
+        while self.running:
+            rss = self.process.memory_info().rss / (1024 * 1024)
+            if rss > self.peak_mb:
+                self.peak_mb = rss
+            time.sleep(self.interval)
+
+    def start(self):
+        self.running = True
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        self.running = False
+        if self.thread:
+            self.thread.join()
 
 def measure_cpu_during(func, *args, **kwargs):
     """
@@ -65,6 +91,10 @@ def benchmark_write(format_name, convert_func, scan_info, output_dir, fmt, num_w
     proc = psutil.Process(os.getpid())
     mem_before = proc.memory_info().rss / (1024 * 1024)
 
+    # 🔹 Start peak memory sampler
+    mem_sampler = MemorySampler(interval=0.01)
+    mem_sampler.start()
+
     # use the new wrapper
     final_file, elapsed, cpu_avg = measure_cpu_during(
             convert_func,
@@ -74,9 +104,15 @@ def benchmark_write(format_name, convert_func, scan_info, output_dir, fmt, num_w
             num_workers=num_workers
         )
 
+    # 🔹 Stop memory sampler
+    mem_sampler.stop()
+
     mem_after = proc.memory_info().rss / (1024 * 1024)
+    mem_peak = mem_sampler.peak_mb
+
     file_size = os.path.getsize(final_file) / (1024 * 1024)
 
+    mem_delta = mem_after - mem_before
     return {
         "format": format_name,
         "output_file": final_file,
@@ -85,6 +121,9 @@ def benchmark_write(format_name, convert_func, scan_info, output_dir, fmt, num_w
         "cpu_avg_proc_percent": cpu_avg,
         "mem_before_mb": mem_before,
         "mem_after_mb": mem_after,
+        "mem_delta_mb": mem_delta,
+        "mem_peak_mb": round(mem_peak, 4),
+        "mem_peak_delta_mb": round(mem_peak - mem_before, 4),
     }
 
 # ------------------------------------------------------------
@@ -95,6 +134,10 @@ def benchmark_read(filepath, fmt):
 
     proc = psutil.Process(os.getpid())
     mem_before = proc.memory_info().rss / (1024 * 1024)
+
+    # 🔹 Start peak memory sampler
+    mem_sampler = MemorySampler(interval=0.01)
+    mem_sampler.start()
 
     # --- CPU + time wrapper ---
     def load_file():
@@ -118,7 +161,13 @@ def benchmark_read(filepath, fmt):
 
     df, elapsed, cpu_avg = measure_cpu_during(load_file)
 
+    # 🔹 Stop memory sampler
+    mem_sampler.stop()
+
     mem_after = proc.memory_info().rss / (1024 * 1024)
+    mem_peak = mem_sampler.peak_mb
+
+    mem_delta = mem_after - mem_before
 
     return {
         "format": fmt,
@@ -126,7 +175,10 @@ def benchmark_read(filepath, fmt):
         "rows_loaded": len(df),
         "cpu_avg_proc_percent": cpu_avg,
         "mem_before_mb": mem_before,
-        "mem_after_mb": mem_after
+        "mem_after_mb": mem_after,
+        "mem_delta_mb": mem_delta,
+        "mem_peak_mb": round(mem_peak, 4),
+        "mem_peak_delta_mb": round(mem_peak - mem_before, 4),
     }
 
 # ------------------------------------------------------------
@@ -145,6 +197,10 @@ def benchmark_query(df, fmt):
 
     proc = psutil.Process(os.getpid())
     mem_before = proc.memory_info().rss / (1024 * 1024)
+
+    # 🔹 Start peak memory sampler
+    mem_sampler = MemorySampler(interval=0.01)
+    mem_sampler.start()
 
     # --- Define workload as a single function for CPU measurement ---
     def run_queries():
@@ -187,58 +243,22 @@ def benchmark_query(df, fmt):
     # --- Measure CPU + Time during all queries ---
     results, elapsed, cpu_avg = measure_cpu_during(run_queries)
 
+  	# 🔹 Stop memory sample
+    mem_sampler.stop()
+
     mem_after = proc.memory_info().rss / (1024 * 1024)
+    mem_peak = mem_sampler.peak_mb
 
     # Add system metrics
+    mem_delta = mem_after - mem_before
     results.update({
         "cpu_avg_proc_percent": cpu_avg,
         "mem_before_mb": mem_before,
         "mem_after_mb": mem_after,
+        "mem_delta_mb": mem_delta,
+        "mem_peak_mb": round(mem_peak, 4),
+        "mem_peak_delta_mb": round(mem_peak - mem_before, 4),
         "total_query_ms": elapsed * 1000
     })
 
     return results
-
-#def benchmark_query(df, fmt):
-#    print(f"\n[Query Benchmark] {fmt}")
-#
-#    results = {}
-#
-#    # 1. Projection (always safe)
-#    start = time.time()
-#    if len(df.columns) > 0:
-#        col0 = df.columns[0]
-#        _ = df[[col0]]
-#    results["projection_ms"] = format_ms(time.time() - start)
-#
-#    # 2. Filtering (only if numeric column exists)
-#    numeric_cols = []
-#    for col in df.columns:
-#        if is_float_series(df[col]):
-#            numeric_cols.append(col)
-#
-#    if "temperature" in numeric_cols:
-#        start = time.time()
-#        temp_float = pd.to_numeric(df["temperature"])
-#        _ = temp_float[temp_float > 25]
-#        results["filter_ms"] = format_ms(time.time() - start)
-#    elif len(numeric_cols) > 0:
-#        # pick the first numeric column
-#        col = numeric_cols[0]
-#        start = time.time()
-#        col_float = pd.to_numeric(df[col])
-#        _ = col_float[col_float > col_float.mean()]  # generic filter
-#        results["filter_ms"] = format_ms(time.time() - start)
-#    else:
-#        results["filter_ms"] = None  # no numeric columns
-#
-#    # 3. Aggregation (mean of numeric columns)
-#    if len(numeric_cols) > 0:
-#        start = time.time()
-#        converted = df[numeric_cols].apply(pd.to_numeric)
-#        _ = converted.mean()
-#        results["aggregation_ms"] = format_ms(time.time() - start)
-#    else:
-#        results["aggregation_ms"] = None
-#
-#    return results
