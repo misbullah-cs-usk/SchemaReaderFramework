@@ -165,41 +165,41 @@ def main_benchmark(
     write_order = ["run", "format", "file_size_mb", "write_time_ms", "cpu_avg_proc_percent", "mem_before_mb", "mem_after_mb", "mem_delta_mb", "mem_peak_delta_mb"]
     df_write_all = df_write_all[write_order]
     df_write_all.to_csv(
-        csv_dir / f"benchmark_write_{input_stem}_all_runs.csv",
+        csv_dir / f"benchmark_write_{input_stem}_all_runs_{num_workers}_{chunk_size}.csv",
         float_format="%.4f",
         index=False
     )
     read_order = ["run", "format", "read_time_ms", "cpu_avg_proc_percent", "mem_before_mb", "mem_after_mb", "mem_delta_mb", "mem_peak_delta_mb"]
     df_read_all = df_read_all[read_order]
     df_read_all.to_csv(
-        csv_dir / f"benchmark_read_{input_stem}_all_runs.csv",
+        csv_dir / f"benchmark_read_{input_stem}_all_runs_{num_workers}_{chunk_size}.csv",
         float_format="%.4f",
         index=False
     )
 
     df_query_all.to_csv(
-        csv_dir / f"benchmark_query_{input_stem}_all_runs.csv",
+        csv_dir / f"benchmark_query_{input_stem}_all_runs_{num_workers}_{chunk_size}.csv",
         float_format="%.4f",
         index=False
     )
 
     #df_write_stats_flat.insert(0, "run", range(1, len(df_write_stats_flat) + 1))
     df_write_stats_flat.to_csv(
-        csv_dir / f"benchmark_write_{input_stem}_mean_std.csv",
+        csv_dir / f"benchmark_write_{input_stem}_{num_workers}_{chunk_size}_mean_std.csv",
         float_format="%.4f",
         index=False
     )
     
     #df_read_stats_flat.insert(0, "run", range(1, len(df_read_stats_flat) + 1))
     df_read_stats_flat.to_csv(
-        csv_dir / f"benchmark_read_{input_stem}_mean_std.csv",
+        csv_dir / f"benchmark_read_{input_stem}_{num_workers}_{chunk_size}_mean_std.csv",
         float_format="%.4f",
         index=False
     )
 
     #df_query_stats_flat.insert(0, "run", range(1, len(df_query_stats_flat) + 1))
     df_query_stats_flat.to_csv(
-        csv_dir / f"benchmark_query_{input_stem}_mean_std.csv",
+        csv_dir / f"benchmark_query_{input_stem}_{num_workers}_{chunk_size}_mean_std.csv",
         float_format="%.4f",
         index=False
     )
@@ -211,6 +211,8 @@ def main_benchmark(
 def main_ml_benchmark(
     input_data,
     formats,
+    chunk_size,
+    num_workers,
     output_dir,
     ml_benchmark_csv_dir=None,
     repeat=5
@@ -331,21 +333,21 @@ def main_ml_benchmark(
 
     # ================= SAVE CSV =================
     df_raw.to_csv(
-        ml_csv_dir / f"ml_benchmark_raw_{input_stem}.csv",
+        ml_csv_dir / f"ml_benchmark_raw_{input_stem}_{num_workers}_{chunk_size}.csv",
         float_format="%.4f",
         index=False
     )
 
     #df_mean.insert(0, "run", range(1, len(df_mean) + 1))
     df_mean.to_csv(
-        ml_csv_dir / f"ml_benchmark_mean_{input_stem}.csv",
+        ml_csv_dir / f"ml_benchmark_mean_{input_stem}_{num_workers}_{chunk_size}.csv",
         float_format="%.4f",
         index=False
     )
 
     #df_std.insert(0, "run", range(1, len(df_std) + 1))
     df_std.to_csv(
-        ml_csv_dir / f"ml_benchmark_std_{input_stem}.csv",
+        ml_csv_dir / f"ml_benchmark_std_{input_stem}_{num_workers}_{chunk_size}.csv",
         float_format="%.4f",
         index=False
     )
@@ -398,6 +400,8 @@ if __name__ == "__main__":
         main_ml_benchmark(
             input_data=args.input_data,
             formats=args.formats,
+            chunk_size=args.chunk_size,
+            num_workers=args.num_workers,
             output_dir=args.output_dir,
             ml_benchmark_csv_dir=args.ml_benchmark_csv_dir,
             repeat=args.repeat
